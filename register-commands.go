@@ -1,6 +1,9 @@
 package corde
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // CreateCommander is a command that can be registered
 type CreateCommander interface {
@@ -34,14 +37,6 @@ type CreateCommand struct {
 	Options     []CreateOptioner `json:"options,omitempty"`
 }
 
-// CreateCommand is a slash command that can be registered to discord
-type SlashCommand struct {
-	Name        string           `json:"name,omitempty"`
-	Description string           `json:"description,omitempty"`
-	Type        CommandType      `json:"type,omitempty"`
-	Options     []CreateOptioner `json:"options,omitempty"`
-}
-
 // NewSlashCommand returns a new slash command
 func NewSlashCommand(name string, description string, options ...CreateOptioner) CreateCommand {
 	return CreateCommand{
@@ -53,121 +48,74 @@ func NewSlashCommand(name string, description string, options ...CreateOptioner)
 }
 
 func (c CreateCommand) createCommand() CreateCommand {
-	return CreateCommand{
+	return c
+}
+
+// CommandOptionConstraint is the constraint for CommandOption types
+type CommandOptionConstraint interface {
+	string | int | bool | float64 // This could be enhanced for user/mention/etc types?
+}
+
+// CommandOption is an option for a CreateCommand
+type CommandOption[T CommandOptionConstraint] struct {
+	Name        string
+	Description string
+	Required    bool
+	Choices     []Choice[T]
+}
+
+// NewCommandOption is a new CommandOption of type T
+func NewCommandOption[T CommandOptionConstraint](name string, description string, required bool, choices ...Choice[T]) *CommandOption[T] {
+	return &CommandOption[T]{
+		Name:        name,
+		Description: description,
+		Required:    required,
+		Choices:     choices,
+	}
+}
+
+func (c *CommandOption[T]) createOption() CreateOption {
+	var typ OptionType
+	var t T
+	switch fmt.Sprintf("%T", t) {
+	case "string":
+		typ = OPTION_STRING
+	case "int":
+		typ = OPTION_INTEGER
+	case "bool":
+		typ = OPTION_BOOLEAN
+	case "float64":
+		typ = OPTION_NUMBER
+	}
+	var choices []Choice[any]
+	for _, ch := range c.Choices {
+		choices = append(choices, Choice[any]{Name: ch.Name, Value: ch.Value})
+	}
+	return CreateOption{
 		Name:        c.Name,
 		Description: c.Description,
-		Options:     c.Options,
-		Type:        c.Type,
-	}
-}
-
-// StringOption is an option that is a string
-type StringOption struct {
-	Name        string
-	Description string
-	Required    bool
-	Choices     []Choice[string]
-}
-
-// NewStringOption returns a new string option
-func NewStringOption(name string, description string, required bool, choices ...Choice[string]) *StringOption {
-	return &StringOption{
-		Name:        name,
-		Description: description,
-		Required:    required,
+		Required:    c.Required,
+		Type:        typ,
 		Choices:     choices,
 	}
 }
 
-func (o *StringOption) createOption() CreateOption {
-	return CreateOption{
-		Name:        o.Name,
-		Description: o.Description,
-		Required:    o.Required,
-		Type:        OPTION_STRING,
-	}
-}
-
-func (o *StringOption) MarshalJSON() ([]byte, error) {
-	return json.Marshal(o.createOption())
-}
-
-// IntOption represents an option that is an integer
-type IntOption struct {
-	Name        string
-	Description string
-	Required    bool
-	Choices     []Choice[int]
-}
-
-// NewIntOption returns a new integer option
-func NewIntOption(name string, description string, required bool, choices ...Choice[int]) *IntOption {
-	return &IntOption{
-		Name:        name,
-		Description: description,
-		Required:    required,
-		Choices:     choices,
-	}
-}
-
-func (o *IntOption) createOption() CreateOption {
-	return CreateOption{
-		Name:        o.Name,
-		Description: o.Description,
-		Required:    o.Required,
-		Type:        OPTION_INTEGER,
-	}
-}
-
-func (o *IntOption) MarshalJSON() ([]byte, error) {
-	return json.Marshal(o.createOption())
-}
-
-// BoolOption is an option that is a boolean
-type BoolOption struct {
-	Name        string
-	Description string
-	Required    bool
-	Choices     []Choice[bool]
-}
-
-// NewBoolOption returns a new boolean option
-func NewBoolOption(name string, description string, required bool, choices ...Choice[bool]) *BoolOption {
-	return &BoolOption{
-		Name:        name,
-		Description: description,
-		Required:    required,
-		Choices:     choices,
-	}
-}
-
-func (o *BoolOption) createOption() CreateOption {
-	return CreateOption{
-		Name:        o.Name,
-		Description: o.Description,
-		Required:    o.Required,
-		Type:        OPTION_BOOLEAN,
-	}
-}
-
-func (o *BoolOption) MarshalJSON() ([]byte, error) {
-	return json.Marshal(o.createOption())
+func (c *CommandOption[T]) MarshalJSON() ([]byte, error) {
+	return json.Marshal(c.createOption())
 }
 
 // SubcommandOption is an option that is a subcommand
 type SubcommandOption struct {
 	Name        string
 	Description string
-	Required    bool
 	Options     []CreateOptioner
 }
 
 // NewSubcommand returns a new subcommand
-func NewSubcommand(name string, description string, required bool, options ...CreateOptioner) *SubcommandOption {
+func NewSubcommand(name string, description string, options ...CreateOptioner) *SubcommandOption {
 	return &SubcommandOption{
 		Name:        name,
 		Description: description,
-		Required:    required,
 		Options:     options,
 	}
 }
@@ -177,7 +125,6 @@ func (o *SubcommandOption) createOption() CreateOption {
 		Options:     o.Options,
 		Name:        o.Name,
 		Description: o.Description,
-		Required:    o.Required,
 		Type:        OPTION_SUB_COMMAND,
 	}
 }
@@ -190,16 +137,14 @@ func (o *SubcommandOption) MarshalJSON() ([]byte, error) {
 type SubcommandGroupOption struct {
 	Name        string
 	Description string
-	Required    bool
 	Options     []CreateOptioner
 }
 
 // NewSubcommandGroup returns a new subcommand group
-func NewSubcommandGroup(name string, description string, required bool, options ...CreateOptioner) *SubcommandGroupOption {
+func NewSubcommandGroup(name string, description string, options ...CreateOptioner) *SubcommandGroupOption {
 	return &SubcommandGroupOption{
 		Name:        name,
 		Description: description,
-		Required:    required,
 		Options:     options,
 	}
 }
@@ -209,7 +154,6 @@ func (o *SubcommandGroupOption) createOption() CreateOption {
 		Options:     o.Options,
 		Name:        o.Name,
 		Description: o.Description,
-		Required:    o.Required,
 		Type:        OPTION_SUB_COMMAND_GROUP,
 	}
 }

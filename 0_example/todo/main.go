@@ -9,22 +9,21 @@ import (
 )
 
 var commands = []corde.CreateCommander{
+
 	corde.NewSlashCommand(
 		"todo",
 		"view edit and remove todos",
 		corde.NewSubcommand(
 			"list",
 			"list todos",
-			false,
-			corde.NewStringOption("name", "todo name", true),
-			corde.NewStringOption("value", "todo value", true),
+			corde.NewCommandOption[string]("name", "todo name", true),
+			corde.NewCommandOption[string]("value", "todo value", true),
 		),
-		corde.NewSubcommand("add", "add a todo", false),
+		corde.NewSubcommand("add", "add a todo"),
 		corde.NewSubcommand(
 			"rm",
 			"remove a todo",
-			false,
-			corde.NewStringOption("name", "todo name", true),
+			corde.NewCommandOption[string]("name", "todo name", true),
 		),
 	),
 }
